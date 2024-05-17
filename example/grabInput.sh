@@ -2,10 +2,6 @@
 
 #Needs to be adjusted if Barcode Buddy runs on the same server
 SCRIPT_LOCATION="${SCRIPT_LOCATION:="/var/www/html/barcodebuddy/index.php"}"
-#Needs to be adjusted if Barcode Buddy runs on an external server
-SERVER_ADDRESS="${SERVER_ADDRESS:="https://your.bbuddy.url/api/"}"
-#Set to true if an external server is used
-USE_CURL="${USE_CURL:="false"}"
 WWW_USER="${WWW_USER:="www-data"}"
 IS_DOCKER="${IS_DOCKER:="false"}"
 #Enter API key if an external server is being used
@@ -92,12 +88,6 @@ declare -A CODE_MAP_CHAR=( ["(KEY_0)"]="0" \
 
 declare NON_ALLOWED_CHAR="NONE";
 
-
-if [[ $EUID -ne 0 ]]; then
-   echo "This script must be run as root" 
-   exit 1
-fi
-
 if [[ $IS_DOCKER == true ]]; then
    if [[ $(printenv ATTACH_BARCODESCANNER) != "true" ]]; then
 	echo "[ScannerConnection] Not starting service, as ATTACH_BARCODESCANNER has not been passed"
@@ -114,7 +104,7 @@ if [ $# -eq 0 ]; then
 	    deviceToUse=$(ls /dev/input/event* | head -n 1)
 	else
 	    echo "No argument provided and more than one device in /dev/input/"
-	    echo "Usage: grabInput.sh /dev/input/eventX"
+	    echo "Usage: $0 /dev/input/eventX"
 	    exit 1
 	fi
 else 
@@ -147,8 +137,10 @@ evtest --grab "$deviceToUse" | while read line; do
       if [[ "$enteredText" == "$SPECIAL_BARCODE" ]]; then
         specialAction
       else
-        if [[ $USE_CURL == false ]]; then
-            sudo -H -u $WWW_USER /usr/bin/screen -dm /usr/bin/php "$SCRIPT_LOCATION" $enteredText
+        if [[ -n ${BARCODE_COMMAND-} ]]; then
+            $BARCODE_COMMAND "$enteredText"
+        elif [[ -z ${SERVER_ADDRESS-} ]]; then
+            screen -dm php "$SCRIPT_LOCATION" "$enteredText"
         else
             curl "${SERVER_ADDRESS}action/scan?apikey=${API_KEY}&add=${enteredText}"
         fi

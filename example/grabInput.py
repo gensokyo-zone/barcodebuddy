@@ -6,11 +6,14 @@
 import sys
 import os
 from evdev import InputDevice, list_devices, ecodes, categorize
-#import requests 
 
-SCRIPT_LOCATION = "/var/www/html/barcodebuddy/index.php"
-#SERVER_ADDRESS = "https://your.bbuddy.url/api/"
-#API_KEY        = "YourApiKey"
+BARCODE_COMMAND = os.environ.get('BARCODE_COMMAND')
+SCRIPT_LOCATION = os.environ.get('SCRIPT_LOCATION', "/var/www/html/barcodebuddy/index.php")
+
+SERVER_ADDRESS = os.environ.get("SERVER_ADDRESS")
+if SERVER_ADDRESS is not None:
+    API_KEY = os.environ['API_KEY']
+    import requests
 
 CODE_MAP_CHAR = {
     
@@ -81,15 +84,20 @@ def parse_key_to_char(val):
     return CODE_MAP_CHAR[val] if val in CODE_MAP_CHAR else ""
 
 if __name__ == "__main__":
-    print ("List of your devices :")
-    devices = [InputDevice(fn) for fn in list_devices()]
-    for device in devices:
-        print ("\t{}\t{}".format(device.fn, device.name))
+    try:
+        INPUT_DEVICE = sys.argv[1]
+        device = InputDevice(INPUT_DEVICE)
+    except IndexError:
+        print ("List of your devices :")
+        devices = [InputDevice(fn) for fn in list_devices()]
+        for device in devices:
+            print ("\t{}\t{}".format(device.fn, device.name))
 
-    print ("Choose event ID :")
-    event_id = raw_input()
+        print ("Choose event ID :")
+        event_id = input()
 
-    device = InputDevice('/dev/input/event{}'.format(event_id))
+        device = InputDevice('/dev/input/event{}'.format(event_id))
+
     device.grab()
 
     data = ""
@@ -99,9 +107,12 @@ if __name__ == "__main__":
             if e.keystate == e.key_up:
                 if e.keycode == "KEY_ENTER":
                     print ("Sending :" + data)
-                    os.system("sudo -H -u www-data /usr/bin/screen -dm /usr/bin/php " + SCRIPT_LOCATION + " " + data)
-		    #If you want to send GET requests instead, uncomment the line below and the "import requests". The method above is preferred
-		    #requests.get(SERVER_ADDRESS+'action/scan?apikey='+API_KEY+'&add='+data)
+                    if BARCODE_COMMAND is not None:
+                        os.system('{} {}'.format(BARCODE_COMMAND, data))
+                    elif SERVER_ADDRESS is not None:
+                        requests.get('{}action/scan?apikey={}&add={}'.format(SERVER_ADDRESS, API_KEY, data))
+                    else:
+                        os.system("screen -dm php " + SCRIPT_LOCATION + " " + data)
                     data = ""
                 else:
                     data += parse_key_to_char(e.keycode)
