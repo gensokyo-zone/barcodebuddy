@@ -487,12 +487,15 @@ class API {
      *
      * @return void
      */
-    public static function openProduct(int $id, float $amount): void {
+    public static function openProduct(int $id, float|string $amount): void {
+        $barcode = gettype($amount) == "string" ? $amount : null;
+        if ($barcode)
+            $amount = 1;
 
         $data = json_encode(array(
             'amount' => $amount
         ));
-        $url  = API_STOCK . "/" . $id . "/open";
+        $url  = ($barcode ? API_STOCK_BY_BARCODE . "/" . $barcode : API_STOCK . "/" . $id) . "/open";
 
         $curl = new CurlGenerator($url, METHOD_POST, $data);
         try {
@@ -610,7 +613,12 @@ class API {
      * @return bool if default best before date not set
      * @throws Exception
      */
-    public static function purchaseProduct(int $id, float $amount, string $bestbefore = null, string $price = null, LockGenerator &$fileLock = null, string $defaultBestBefore = null): bool {
+    // TODO: amount can be barcode
+    public static function purchaseProduct(int $id, float|string $amount, string $bestbefore = null, string $price = null, LockGenerator &$fileLock = null, string $defaultBestBefore = null): bool {
+        $barcode = gettype($amount) == "string" ? $amount : null;
+        if ($barcode)
+            $amount = 1;
+
         $data = array(
             'amount'           => $amount,
             'transaction_type' => 'purchase'
@@ -630,7 +638,7 @@ class API {
         }
         $data['best_before_date'] = self::formatBestBeforeDays($daysBestBefore);
         $data_json                = json_encode($data);
-        $url                      = API_STOCK . "/" . $id . "/add";
+        $url                      = ($barcode ? API_STOCK_BY_BARCODE . "/" . $barcode : API_STOCK . "/" . $id) . "/add";
 
         $curl = new CurlGenerator($url, METHOD_POST, $data_json);
         try {
@@ -643,6 +651,7 @@ class API {
         if (BBConfig::getInstance()["SHOPPINGLIST_REMOVE"]) {
             self::removeFromShoppinglist($id, $amount);
         }
+        // TODO: return total amount?
         return ($daysBestBefore != 0);
     }
 
@@ -704,7 +713,11 @@ class API {
      *
      * @return void
      */
-    public static function consumeProduct(int $id, float $amount, bool $spoiled = false) {
+    public static function consumeProduct(int $id, float|string $amount, bool $spoiled = false) {
+        $barcode = gettype($amount) == "string" ? $amount : null;
+        if ($barcode)
+            $amount = 1;
+
         if ($amount <= 0)
             return;
 
@@ -714,7 +727,7 @@ class API {
             'spoiled'          => $spoiled
         ));
 
-        $url = API_STOCK . "/" . $id . "/consume";
+        $url  = ($barcode ? API_STOCK_BY_BARCODE . "/" . $barcode : API_STOCK . "/" . $id) . "/consume";
 
         $curl = new CurlGenerator($url, METHOD_POST, $data);
         try {

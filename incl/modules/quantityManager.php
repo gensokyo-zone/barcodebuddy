@@ -29,6 +29,7 @@ class QuantityManager {
      * @throws DbConnectionDuringEstablishException
      */
     public static function getStoredQuantityForBarcode(string $barcode, bool $deleteAfterCompletion = false, SQLite3 $db = null): ?float {
+        // TODO: this is dumb why would I use this at all?
         if ($db == null)
             $db = DatabaseConnection::getInstance()->getDatabaseReference();
         $res = $db->query("SELECT * FROM Quantities WHERE barcode='$barcode'");
